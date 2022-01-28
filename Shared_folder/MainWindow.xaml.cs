@@ -22,7 +22,7 @@ namespace Shared_folder
     /// </summary>
     public partial class MainWindow : Window
     {
-        private readonly string _friendIP = "25.35.108.130";
+        private readonly string _friendIP = "192.168.0.102";
         private string _folderName;
         private string _pathToCurrDir;
         private string _pathToFolder;
@@ -50,9 +50,9 @@ namespace Shared_folder
                 $"md \"{_folderName}\"\n" +
                 $"echo host>>\"{_pathToFolder}\\playerData.txt\"\n" +
                 "chcp 65001\n" +
-                $"net share {_folderName}=\"{_pathToFolder}\" /grant:\"Все\",Full\n" +
-                $"icacls \"{_pathToFolder}\"  /grant \"Все\":F /T\n" +
-                $"icacls \"{_pathToFolder}\\playerData.txt\"  /grant \"Все\":F \n");
+                $"            net share {_folderName}=\"{_pathToFolder}\" /grant:\"Все\",Full\n" +
+                $"            icacls \"{_pathToFolder}\"  /grant \"Все\":F /T\n" +
+                $"            icacls \"{_pathToFolder}\\playerData.txt\"  /grant \"Все\":F \n");
 
             Process create = new Process();
             create.StartInfo.FileName = "createData.bat";
