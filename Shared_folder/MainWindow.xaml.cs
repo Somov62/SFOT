@@ -75,16 +75,16 @@ namespace Shared_folder
                         MessageReceived(lastMessege);
                     });
                 }
-                catch (ThreadAbortException)
-                {
-                    break;
-                }
-                catch (Exception ex)
+                catch (IOException)
                 {
                     this.Dispatcher.Invoke(() =>
                     {
-                        output.Items.Add("Ошибка чтения данных удалённого компьютера " + ex.Message );
+                        MessageReceived("Не удалось прочитать, поток занят");
                     });
+                }
+                catch 
+                {
+                     
                 }
                 Thread.Sleep(500); 
             }
@@ -146,6 +146,12 @@ namespace Shared_folder
                     writer.Close();
                 }
                 output.Items.Add(messege);
+            }
+            catch (IOException)
+            {
+                
+                MessageReceived("Не удалось отправить, поток занят");
+            
             }
             catch 
             {
