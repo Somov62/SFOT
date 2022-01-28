@@ -15,6 +15,7 @@ using System.Windows.Shapes;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
+using System.Windows.Controls.Primitives;
 
 namespace Shared_folder
 {
@@ -48,10 +49,13 @@ namespace Shared_folder
         public void MessageReceived(object messege)
         {
             output.Items.Add(messege);
-            output.ScrollIntoView(output.Items[output.Items.Count - 1]);
+            scroll.ScrollToEnd();
         }
+
+        
         private void Listen(CancellationToken token = default)
         {
+            bool IspreviewException = false;
             int previewLenght = 0;
             while (!token.IsCancellationRequested)
             {
@@ -70,23 +74,22 @@ namespace Shared_folder
                     }
                     string lastMessege = messeges[messeges.Length - 2];
                      previewLenght = messeges.Length;
+                    IspreviewException = false;
                     this.Dispatcher.Invoke(() =>
                     {
                         MessageReceived(lastMessege);
                     });
                 }
-                catch (IOException)
+                catch 
                 {
+                    if (IspreviewException) continue;                    
                     this.Dispatcher.Invoke(() =>
                     {
                         MessageReceived("Не удалось прочитать, поток занят");
                     });
+                    IspreviewException = true;
                 }
-                catch 
-                {
-                     
-                }
-                Thread.Sleep(500); 
+                Thread.Sleep(500);
             }
         }
         private void StartGame(string playerMode)
@@ -146,6 +149,9 @@ namespace Shared_folder
                     writer.Close();
                 }
                 output.Items.Add(messege);
+                output.ScrollIntoView(output.Items[output.Items.Count - 1]);
+                output.UpdateLayout();
+                scroll.ScrollToEnd();
             }
             catch (IOException)
             {
@@ -156,6 +162,7 @@ namespace Shared_folder
             catch 
             {
                 output.Items.Add("Не удалось отправить сообщение");
+                scroll.ScrollToEnd();
             }
             
         }
