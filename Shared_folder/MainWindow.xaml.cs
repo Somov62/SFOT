@@ -23,15 +23,21 @@ namespace Shared_folder
     public partial class MainWindow : Window
     {
         private readonly string _friendIP = "25.35.108.130";
+        private string _folderName;
+        private string _pathToCurrDir;
+        private string _pathToFolder;
         public MainWindow()
         {
             InitializeComponent();
+            _folderName = System.Reflection.Assembly.GetEntryAssembly().GetName().Name + "_ShareFolder";
+            _pathToCurrDir = Environment.CurrentDirectory;
+            _pathToFolder = Environment.CurrentDirectory + "\\" + _folderName;
         }
 
         private void CreateFolder_Click(object sender, RoutedEventArgs e)
         {
             StartGame("cryptographer");
-            using (StreamReader reader = new StreamReader($@"\\{_friendIP}\sha1\playerData.txt"))
+            using (StreamReader reader = new StreamReader($@"\\{_friendIP}\{_folderName}\playerData.txt"))
             {
                 output.Text = reader.ReadToEnd();
             }
@@ -39,17 +45,14 @@ namespace Shared_folder
         }
         private void StartGame(string playerMode)
         {
-            string folderName = System.Reflection.Assembly.GetEntryAssembly().GetName().Name + "_ShareFolder";
-            string path = Environment.CurrentDirectory;
-            string pathFolder = Environment.CurrentDirectory + "\\" + folderName;
             File.WriteAllText("./createData.bat",
-                $"cd /d \"{path}\"\n" +
-                $"md \"{folderName}\"\n" +
-                $"echo host>>\"{pathFolder}\\playerData.txt\"\n" +
+                $"cd /d \"{_pathToCurrDir}\"\n" +
+                $"md \"{_folderName}\"\n" +
+                $"echo host>>\"{_pathToFolder}\\playerData.txt\"\n" +
                 "chcp 65001\n" +
-                $"net share {folderName}=\"{pathFolder}\" /grant:\"Все\",Full\n" +
-                $"icacls \"{pathFolder}\"  /grant \"Все\":F /T\n" +
-                $"icacls \"{pathFolder}\\playerData.txt\"  /grant \"Все\":F \n");
+                $"net share {_folderName}=\"{_pathToFolder}\" /grant:\"Все\",Full\n" +
+                $"icacls \"{_pathToFolder}\"  /grant \"Все\":F /T\n" +
+                $"icacls \"{_pathToFolder}\\playerData.txt\"  /grant \"Все\":F \n");
 
             Process create = new Process();
             create.StartInfo.FileName = "createData.bat";
@@ -58,7 +61,7 @@ namespace Shared_folder
             create.StartInfo.CreateNoWindow = true;
             create.Start();
             System.Threading.Thread.Sleep(100);
-            using (StreamWriter writer = new StreamWriter($@"./{folderName}\playerData.txt"))
+            using (StreamWriter writer = new StreamWriter($@"./{_folderName}\playerData.txt"))
             {
                 writer.WriteLine("playerMode"+ "|" + playerMode);
             }
@@ -66,14 +69,11 @@ namespace Shared_folder
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            string folderName = System.Reflection.Assembly.GetEntryAssembly().GetName().Name + "_ShareFolder";
-            string path = Environment.CurrentDirectory;
-            string pathFolder = Environment.CurrentDirectory + "\\" + folderName;
             File.WriteAllText("./deleteData.bat",
-                $"cd /d \"{path}\"\n" +
-                $"net share {folderName} /delete /y\n" +
-                $"rd /S /Q \"{pathFolder}\"\n" +
-                $"del \"{path}\\createData.bat\"\n" +
+                $"cd /d \"{_pathToCurrDir}\"\n" +
+                $"net share {_folderName} /delete /y\n" +
+                $"rd /S /Q \"{_pathToFolder}\"\n" +
+                $"del \"{_pathToCurrDir}\\createData.bat\"\n" +
                 "del %0");
 
             Process create = new Process();
