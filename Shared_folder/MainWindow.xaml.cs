@@ -21,8 +21,9 @@ namespace Shared_folder
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, Iotsosable
     {
+        private string _userName = "misha";
         private readonly string _friendIP = "192.168.0.102";
         private string _folderName;
         private string _pathToCurrDir;
@@ -44,30 +45,45 @@ namespace Shared_folder
             listenThread = new Thread(() => { Listen(cts.Token); });
             listenThread.Start();
         }
+        public void MessageReceived(object messege)
+        {
+            output.Items.Add(messege);
+            output.ScrollIntoView(output.Items[output.Items.Count - 1]);
+        }
         private void Listen(CancellationToken token = default)
         {
+            int previewLenght = 0;
             while (!token.IsCancellationRequested)
             {
                 try
                 {
+                    string actualMessege = "";
                     using (StreamReader reader = new StreamReader($@"\\{_friendIP}\{_folderName}\playerData.txt"))
                     {
-                        this.Dispatcher.Invoke(() =>
-                        {
-                            output.Content += reader.ReadToEnd();
-                        });
-
+                        actualMessege = reader.ReadToEnd();
                     }
+                    string[] messeges = actualMessege.Split("\r\n");
+                    if (messeges.Length == previewLenght)
+                    {
+                        Thread.Sleep(500);
+                        continue;
+                    }
+                    string lastMessege = messeges[messeges.Length - 2];
+                     previewLenght = messeges.Length;
+                    this.Dispatcher.Invoke(() =>
+                    {
+                        MessageReceived(lastMessege);
+                    });
                 }
                 catch (ThreadAbortException)
                 {
                     break;
                 }
-                catch
+                catch (Exception ex)
                 {
                     this.Dispatcher.Invoke(() =>
                     {
-                        output.Content += "Ошибка чтения данных удалённого компьютера\n";
+                        output.Items.Add("Ошибка чтения данных удалённого компьютера " + ex.Message );
                     });
                 }
                 Thread.Sleep(500); 
@@ -117,11 +133,27 @@ namespace Shared_folder
 
         private void Send_Click(object sender, RoutedEventArgs e)
         {
-            using (StreamWriter writer = File.AppendText($@"{_pathToFolder}\playerData.txt"))
+            string messege;
+            messege = DateTime.Now.TimeOfDay.Hours.ToString();
+            messege += ":" + DateTime.Now.TimeOfDay.Minutes.ToString();
+            messege += " " + _userName;
+            messege += "\n" + input.Text;
+            try
             {
-                writer.WriteLine(input.Text);
-                writer.Close();
+                using (StreamWriter writer = File.AppendText($@"{_pathToFolder}\playerData.txt"))
+                {
+                    writer.WriteLine(messege);
+                    writer.Close();
+                }
+                output.Items.Add(messege);
             }
+            catch 
+            {
+                output.Items.Add("Не удалось отправить сообщение");
+            }
+            
         }
+
+        
     }
 }

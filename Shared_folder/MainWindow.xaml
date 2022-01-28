@@ -8,7 +8,7 @@
         Title="MainWindow" Height="450" Width="800" Closing="Window_Closing">
     <Grid>
         <Button Content="create" Height="50" VerticalAlignment="Top" Click="CreateFolder_Click" Margin="50"/>
-        <Label x:Name="output" Margin="120" BorderBrush="Blue" BorderThickness="1"/>
+        <ListBox x:Name="output" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="120,127,0,0" Height="187" Width="568"/>
         <TextBox x:Name="input" HorizontalAlignment="Left" Margin="496,319,0,0" Text="Написать сообщение" TextWrapping="Wrap" VerticalAlignment="Top" Width="192" Height="55"/>
         <Button Content="Отправить" HorizontalAlignment="Left" Margin="120,319,0,0" VerticalAlignment="Top" Height="55" Width="110" Click="Send_Click"/>
 
