@@ -3,29 +3,37 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 
-namespace O.T.S.O.S_
+namespace OTSOS
 {
     public class OtsosClient
     {
+        private bool _IsGameRun;
         private string _friendIp;
         private readonly string _folderName;
         private readonly string _pathToCurrDir;
         private readonly string _pathToFolder;
-        private bool _IsGameRun;
-        private CancellationTokenSource listenThreadToken;
-        public delegate void Answer(string message);
-        public OtsosClient(string friendIp, Answer method)
+        private readonly Thread _listenThread;
+        private CancellationTokenSource _listenThreadToken;
+        public delegate void Answer(object message);
+        private Answer _answerSend;
+        public OtsosClient(string friendIp, Answer answerListen, Answer answerSend)
         {
-            
             _IsGameRun = false;
-            listenThreadToken = new CancellationTokenSource();
+            ListenDelay = 500;
+
+            _answerSend = answerSend;
+            _listenThreadToken = new CancellationTokenSource();
             FriendIp = friendIp;
+
             _folderName = System.Reflection.Assembly.GetEntryAssembly().GetName().Name + "_ShareFolder";
             _pathToCurrDir = Environment.CurrentDirectory;
             _pathToFolder = Environment.CurrentDirectory + "\\" + _folderName;
-            Listen(method, listenThreadToken.Token);
+
+            _listenThread = new Thread(() => { Listen(answerListen, _listenThreadToken.Token); });
+            _listenThread.Start();
         }
-        public string FriendIp { 
+        public string FriendIp
+        {
             get
             {
                 return _friendIp;
@@ -41,7 +49,12 @@ namespace O.T.S.O.S_
                 _friendIp = value;
             }
         }
-        private void Start(string startMessege)
+
+        /// <summary>
+        /// Delay listen stream in milliseconds
+        /// </summary>
+        public int ListenDelay { get; set; }
+        public void Start(string startMessege)
         {
             if (_IsGameRun) throw new Exception("OtsosClient already started");
             File.WriteAllText("./createData.bat",
@@ -59,16 +72,14 @@ namespace O.T.S.O.S_
             create.StartInfo.UseShellExecute = false;
             create.StartInfo.CreateNoWindow = true;
             create.Start();
-            System.Threading.Thread.Sleep(100);
-            using (StreamWriter writer = new StreamWriter($@"./{_folderName}\playerData.txt"))
-            {
-                writer.WriteLine(startMessege);
-            }
+            _IsGameRun = true;
+            Thread.Sleep(100);
+            Send(startMessege);
         }
-        private void Close()
+        public void Close()
         {
             if (!_IsGameRun) throw new Exception("OtsosClient already closed");
-            listenThreadToken.Cancel();
+            _listenThreadToken.Cancel();
             File.WriteAllText("./deleteData.bat",
                 $"cd /d \"{_pathToCurrDir}\"\n" +
                 $"net share {_folderName} /delete /y\n" +
@@ -84,7 +95,7 @@ namespace O.T.S.O.S_
             create.Start();
         }
 
-        private void Listen(Answer method, CancellationToken token = default)
+        private void Listen(Answer method, CancellationToken token)
         {
             bool IspreviewException = false;
             int previewLenght = 0;
@@ -100,29 +111,37 @@ namespace O.T.S.O.S_
                     string[] messeges = actualMessege.Split("\r\n");
                     if (messeges.Length == previewLenght)
                     {
-                        Thread.Sleep(500);
+                        Thread.Sleep(ListenDelay);
                         continue;
                     }
                     string lastMessege = messeges[messeges.Length - 2];
                     previewLenght = messeges.Length;
                     IspreviewException = false;
-                    method.BeginInvoke(lastMessege, null, null);
-                    //this.Dispatcher.Invoke(() =>
-                    //{
-                    //    MessageReceived(lastMessege);
-                    //});
+                    method.DynamicInvoke(lastMessege);
                 }
                 catch
                 {
                     if (IspreviewException) continue;
-                    method.BeginInvoke("Не удалось прочитать, поток занят", null, null);
-                    //this.Dispatcher.Invoke(() =>
-                    //{
-                    //    MessageReceived();
-                    //});
+                    method.DynamicInvoke("Не удалось прочитать, поток занят");
                     IspreviewException = true;
                 }
-                Thread.Sleep(500);
+                Thread.Sleep(ListenDelay);
+            }
+        }
+        public void Send(string messege)
+        {
+            try
+            {
+                using (StreamWriter writer = File.AppendText($@"{_pathToFolder}\playerData.txt"))
+                {
+                    writer.WriteLine(messege);
+                    writer.Close();
+                }
+                _answerSend.DynamicInvoke(messege);
+            }
+            catch
+            {
+                _answerSend.DynamicInvoke("Не удалось отправить сообщение");
             }
         }
     }

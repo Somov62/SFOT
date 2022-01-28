@@ -16,122 +16,53 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Windows.Controls.Primitives;
+using OTSOS;
 
 namespace Shared_folder
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window, Iotsosable
+    public partial class MainWindow : Window
     {
         private string _userName = "misha";
         private readonly string _friendIP = "192.168.0.102";
-
-        
-        Thread listenThread;
-        CancellationTokenSource cts = new CancellationTokenSource();
+        OtsosClient client;
 
         public MainWindow()
         {
             InitializeComponent();
-            
         }
 
         private void CreateFolder_Click(object sender, RoutedEventArgs e)
         {
-            StartGame("cryptographer");
-            listenThread = new Thread(() => { Listen(cts.Token); });
-            listenThread.Start();
+            client = new OtsosClient(_friendIP, MessageReceived, MessageReceived);
+            client.Start(_userName + " вошел в чат");
         }
         public void MessageReceived(object messege)
         {
-            output.Items.Add(messege);
-            scroll.ScrollToEnd();
-        }
-
-        
-        private void Listen(CancellationToken token = default)
-        {
-            bool IspreviewException = false;
-            int previewLenght = 0;
-            while (!token.IsCancellationRequested)
+            this.Dispatcher.Invoke(() =>
             {
-                try
-                {
-                    string actualMessege = "";
-                    using (StreamReader reader = new StreamReader($@"\\{_friendIP}\{/*_folderName*/}\playerData.txt"))
-                    {
-                        actualMessege = reader.ReadToEnd();
-                    }
-                    string[] messeges = actualMessege.Split("\r\n");
-                    if (messeges.Length == previewLenght)
-                    {
-                        Thread.Sleep(500);
-                        continue;
-                    }
-                    string lastMessege = messeges[messeges.Length - 2];
-                     previewLenght = messeges.Length;
-                    IspreviewException = false;
-                    this.Dispatcher.Invoke(() =>
-                    {
-                        MessageReceived(lastMessege);
-                    });
-                }
-                catch 
-                {
-                    if (IspreviewException) continue;                    
-                    this.Dispatcher.Invoke(() =>
-                    {
-                        MessageReceived("Не удалось прочитать, поток занят");
-                    });
-                    IspreviewException = true;
-                }
-                Thread.Sleep(500);
-            }
-        }
-        private void StartGame(string playerMode)
-        {
-           
+                output.Items.Add(messege);
+                scroll.ScrollToEnd();
+            });
         }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            
+            if (client == null) return;
+            client.Close();
         }
 
         private void Send_Click(object sender, RoutedEventArgs e)
         {
+            if (client == null) return;
             string messege;
             messege = DateTime.Now.TimeOfDay.Hours.ToString();
             messege += ":" + DateTime.Now.TimeOfDay.Minutes.ToString();
             messege += " " + _userName;
             messege += "\n" + input.Text;
-            try
-            {
-                using (StreamWriter writer = File.AppendText($@"{/*_pathToFolder*/}\playerData.txt"))
-                {
-                    writer.WriteLine(messege);
-                    writer.Close();
-                }
-                output.Items.Add(messege);
-                output.ScrollIntoView(output.Items[output.Items.Count - 1]);
-                output.UpdateLayout();
-                scroll.ScrollToEnd();
-            }
-            catch (IOException)
-            {
-                
-                MessageReceived("Не удалось отправить, поток занят");
-            
-            }
-            catch 
-            {
-                output.Items.Add("Не удалось отправить сообщение");
-                scroll.ScrollToEnd();
-            }
-            
+            client.Send(messege);
         }
-
-        
     }
 }
