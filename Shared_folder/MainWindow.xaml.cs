@@ -14,6 +14,7 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 
 namespace Shared_folder
 {
@@ -26,6 +27,9 @@ namespace Shared_folder
         private string _folderName;
         private string _pathToCurrDir;
         private string _pathToFolder;
+        Thread listenThread;
+        CancellationTokenSource cts = new CancellationTokenSource();
+
         public MainWindow()
         {
             InitializeComponent();
@@ -37,11 +41,37 @@ namespace Shared_folder
         private void CreateFolder_Click(object sender, RoutedEventArgs e)
         {
             StartGame("cryptographer");
-            using (StreamReader reader = new StreamReader($@"\\{_friendIP}\{_folderName}\playerData.txt"))
+            listenThread = new Thread(() => { Listen(cts.Token); });
+            listenThread.Start();
+        }
+        private void Listen(CancellationToken token = default)
+        {
+            while (!token.IsCancellationRequested)
             {
-                output.Text = reader.ReadToEnd();
-            }
+                try
+                {
+                    using (StreamReader reader = new StreamReader($@"\\{_friendIP}\{_folderName}\playerData.txt"))
+                    {
+                        this.Dispatcher.Invoke(() =>
+                        {
+                            output.Text = reader.ReadToEnd();
+                        });
 
+                    }
+                }
+                catch (ThreadAbortException)
+                {
+                    break;
+                }
+                catch
+                {
+                    this.Dispatcher.Invoke(() =>
+                    {
+                        output.Text += "Ошибка чтения данных удалённого компьютера\n";
+                    });
+                }
+                Thread.Sleep(500); 
+            }
         }
         private void StartGame(string playerMode)
         {
@@ -69,6 +99,7 @@ namespace Shared_folder
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            cts.Cancel();
             File.WriteAllText("./deleteData.bat",
                 $"cd /d \"{_pathToCurrDir}\"\n" +
                 $"net share {_folderName} /delete /y\n" +
