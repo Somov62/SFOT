@@ -54,7 +54,7 @@ namespace Shared_folder
                     {
                         this.Dispatcher.Invoke(() =>
                         {
-                            output.Text = reader.ReadToEnd();
+                            output.Content += reader.ReadToEnd();
                         });
 
                     }
@@ -67,7 +67,7 @@ namespace Shared_folder
                 {
                     this.Dispatcher.Invoke(() =>
                     {
-                        output.Text += "Ошибка чтения данных удалённого компьютера\n";
+                        output.Content += "Ошибка чтения данных удалённого компьютера\n";
                     });
                 }
                 Thread.Sleep(500); 
@@ -113,6 +113,15 @@ namespace Shared_folder
             create.StartInfo.UseShellExecute = false;
             create.StartInfo.CreateNoWindow = true;
             create.Start();
+        }
+
+        private void Send_Click(object sender, RoutedEventArgs e)
+        {
+            using (StreamWriter writer = File.AppendText($@"{_pathToFolder}\playerData.txt"))
+            {
+                writer.WriteLine(input.Text);
+                writer.Close();
+            }
         }
     }
 }
