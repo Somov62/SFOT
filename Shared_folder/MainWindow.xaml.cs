@@ -41,11 +41,15 @@ namespace Shared_folder
         }
         public void MessageReceived(object messege)
         {
-            this.Dispatcher.Invoke(() =>
+            try
             {
-                output.Items.Add(messege);
-                scroll.ScrollToEnd();
-            });
+                this.Dispatcher.Invoke(() =>
+                {
+                    output.Items.Add(messege);
+                    scroll.ScrollToEnd();
+                });
+            }
+            catch { } 
         }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
