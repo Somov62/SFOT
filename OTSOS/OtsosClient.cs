@@ -1,10 +1,27 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Net;
 using System.Threading;
 
 namespace OTSOS
 {
+    /// <summary>
+    /// Тип использумой локальной сети
+    /// </summary>
+    public enum IpType
+    {
+        /// <summary>
+        /// Вы используете Hamachi и ваш ip начинается на 25.
+        /// </summary>
+        Hamachi = 25,
+        /// <summary>
+        /// Вы используете обычную LAN и ваш ip начинается на 192.
+        /// </summary>
+        Standart = 19
+    }
     public class OtsosClient
     {
         private bool _IsGameRun;
@@ -16,13 +33,26 @@ namespace OTSOS
         private CancellationTokenSource _listenThreadToken;
         public delegate void Answer(object message);
         private Answer _answerSend;
-        public OtsosClient(string friendIp, Answer answerListen, Answer answerSend)
+        public OtsosClient(string friendIp, IpType ipType, Answer answerListen, Answer answerSend)
         {
             _IsGameRun = false;
             ListenDelay = 500;
 
             _answerSend = answerSend;
             _listenThreadToken = new CancellationTokenSource();
+
+            List<IPAddress> ipAdress = Dns.GetHostByName(Dns.GetHostName()).AddressList.ToList();
+            string personalIp = string.Empty;
+            if (IpType.Hamachi == ipType)
+            {
+                personalIp = ipAdress.Where(p => p.ToString().Substring(0, 3) == "25.").FirstOrDefault().ToString();
+            }
+            if (IpType.Standart == ipType)
+            {
+                personalIp = ipAdress.Where(p => p.ToString().Substring(0, 3) == "25.").FirstOrDefault().ToString(); 
+            }
+            if (personalIp is null || personalIp == string.Empty) throw new Exception("The selected internet adapter was not found");
+            PersonalIp = personalIp;
             FriendIp = friendIp;
 
             _folderName = System.Reflection.Assembly.GetEntryAssembly().GetName().Name + "_ShareFolder";
@@ -38,7 +68,7 @@ namespace OTSOS
             {
                 return _friendIp;
             }
-            set
+            private set
             {
                 string[] segments = value.Split('.');
                 if (segments.Length != 4) throw new Exception("Incorrect format Ip adress");
@@ -49,6 +79,7 @@ namespace OTSOS
                 _friendIp = value;
             }
         }
+        public string PersonalIp { get; private set; }
 
         /// <summary>
         /// Delay listen stream in milliseconds
@@ -60,11 +91,11 @@ namespace OTSOS
             File.WriteAllText("./createData.bat",
                 $"cd /d \"{_pathToCurrDir}\"\n" +
                 $"md \"{_folderName}\"\n" +
-                $"echo host>>\"{_pathToFolder}\\playerData.txt\"\n" +
+                $"echo host>>\"{_pathToFolder}\\{FriendIp}.txt\"\n" +
                 "chcp 65001\n" +
                 $"            net share {_folderName}=\"{_pathToFolder}\" /grant:\"Все\",Full\n" +
                 $"            icacls \"{_pathToFolder}\"  /grant \"Все\":F /T\n" +
-                $"            icacls \"{_pathToFolder}\\playerData.txt\"  /grant \"Все\":F \n");
+                $"            icacls \"{_pathToFolder}\\{FriendIp}.txt\"  /grant \"Все\":F \n");
 
             Process create = new Process();
             create.StartInfo.FileName = "createData.bat";
@@ -76,10 +107,15 @@ namespace OTSOS
             Thread.Sleep(100);
             Send(startMessege);
         }
-        public void Close()
+        public void Close(bool sleepDisconnect = true)
         {
             if (!_IsGameRun) throw new Exception("OtsosClient already closed");
             _listenThreadToken.Cancel();
+            if (sleepDisconnect)
+            {
+                Send("<close>");
+                Thread.Sleep(3000);
+            }
             File.WriteAllText("./deleteData.bat",
                 $"cd /d \"{_pathToCurrDir}\"\n" +
                 $"net share {_folderName} /delete /y\n" +
@@ -93,6 +129,7 @@ namespace OTSOS
             create.StartInfo.UseShellExecute = false;
             create.StartInfo.CreateNoWindow = true;
             create.Start();
+           
         }
 
         private void Listen(Answer method, CancellationToken token)
@@ -104,7 +141,7 @@ namespace OTSOS
                 try
                 {
                     string actualMessege = "";
-                    using (StreamReader reader = new StreamReader($@"\\{FriendIp}\{_folderName}\playerData.txt"))
+                    using (StreamReader reader = new StreamReader($@"\\{FriendIp}\{_folderName}\{PersonalIp}.txt"))
                     {
                         actualMessege = reader.ReadToEnd();
                     }
@@ -117,12 +154,17 @@ namespace OTSOS
                     string lastMessege = messeges[messeges.Length - 2];
                     previewLenght = messeges.Length;
                     IspreviewException = false;
+                    if (lastMessege == "<close>")
+                    {
+                        method.DynamicInvoke("Пользователь оффлайн, канал закрыт");
+                        this.Close(false);
+                    }
                     method.DynamicInvoke(lastMessege);
                 }
                 catch
                 {
                     if (IspreviewException) continue;
-                    method.DynamicInvoke("Не удалось прочитать, поток занят");
+                    method.DynamicInvoke("Пользователь оффлайн или ip неверен");
                     IspreviewException = true;
                 }
                 Thread.Sleep(ListenDelay);
@@ -132,7 +174,7 @@ namespace OTSOS
         {
             try
             {
-                using (StreamWriter writer = File.AppendText($@"{_pathToFolder}\playerData.txt"))
+                using (StreamWriter writer = File.AppendText($@"{_pathToFolder}\{FriendIp}.txt"))
                 {
                     writer.WriteLine(messege);
                     writer.Close();
